@@ -1,0 +1,6 @@
+# Ignore environment variable files
+.env
+# Ignore secret files
+cf_api_token.txt
+postgres_password.txt
+redis_password.txt
