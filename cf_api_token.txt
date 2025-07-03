@@ -1,0 +1,3 @@
+# This file contains your Cloudflare API token for Traefik DNS challenge
+# Replace the contents with your actual Cloudflare API token
+<your-cloudflare-api-token-here>
