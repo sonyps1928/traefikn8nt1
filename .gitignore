@@ -5,5 +5,22 @@ cf_api_token.txt
 postgres_password.txt
 redis_password.txt
 
+# Traefik config and certs
 traefik/traefik.yml
 letsencrypt/
+
+# Python virtual environment and cache
+.venv/
+__pycache__/
+*.pyc
+
+# Python helper/test scripts
+requirements.txt
+test_env_vars.py
+
+# Docker Compose override
+docker-compose.override.yml
+
+# n8n SQLite database and data
+n8n_data/
+*.sqlite
