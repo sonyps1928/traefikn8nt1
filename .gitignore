@@ -24,3 +24,11 @@ docker-compose.override.yml
 # n8n SQLite database and data
 n8n_data/
 *.sqlite
+
+# Ignore sensitive OAuth2 proxy config
+oauth2-proxy.cfg
+oauth2-proxy-pocketid.cfg
+
+# But keep the safe template version
+!oauth2-proxy-template.cfg
+
