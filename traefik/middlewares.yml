@@ -1,0 +1,20 @@
+http:
+  middlewares:
+    n8n-auth:
+      forwardAuth:
+        address: "http://oauth2-proxy:4180/oauth2/auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-Auth-Request-User"
+          - "X-Auth-Request-Email"
+          - "X-Auth-Request-Access-Token"
+
+    secure-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000

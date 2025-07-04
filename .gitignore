@@ -12,7 +12,7 @@ oauth2-proxy-pocketid.cfg
 
 # 👷 Traefik config and dynamic middlewares
 letsencrypt/
-traefik/middlewares.yml
+#traefik/middlewares.yml
 traefik_config/
 
 # 🐍 Python environment
