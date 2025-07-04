@@ -14,11 +14,14 @@ providers:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
     network: traefik
+  file:
+    directory: /traefik
+    watch: true
 
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${TRAEFIK_LETSENCRYPT_EMAIL}"  # Uses .env variable
+      email: "${TRAEFIK_LETSENCRYPT_EMAIL}" 
       storage: "/letsencrypt/acme.json"
       httpChallenge:
         entryPoint: web

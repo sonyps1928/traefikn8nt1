@@ -19,6 +19,8 @@ traefik_config/
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # 🛠️ Dev tools and temporary files
 requirements.txt
@@ -36,9 +38,23 @@ n8n_data/
 # 🔧 Editor and system files
 .vscode/
 .idea/
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
 
 # ✅ Include this explicitly tracked config template
 !oauth2-proxy-template.cfg
+
+# --- Secrets ---
+secrets/
+*.secret
+*.token
+*.pem
+*.key
+
+
+# --- Application Data ---
+
+traefik/acme.json # Also ignore if it appears here
 
