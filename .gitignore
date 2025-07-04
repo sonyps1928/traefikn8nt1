@@ -6,7 +6,7 @@ postgres_password.txt
 redis_password.txt
 
 # Traefik config and certs
-traefik/traefik.yml
+traefik_config/
 letsencrypt/
 
 # Python virtual environment and cache

@@ -1,0 +1,33 @@
+# Traefik Configuration
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${TRAEFIK_LETSENCRYPT_EMAIL}"  # Uses .env variable
+      storage: "/letsencrypt/acme.json"
+      httpChallenge:
+        entryPoint: web
+
+api:
+  dashboard: true
+  insecure: false
+
+log:
+  level: INFO
+
+accessLog: {}
