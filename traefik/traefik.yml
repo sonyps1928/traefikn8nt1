@@ -1,7 +1,7 @@
 # Traefik Configuration
-global:
-  checkNewVersion: false
-  sendAnonymousUsage: false
+#global:
+#  checkNewVersion: false
+#  sendAnonymousUsage: false
 
 entryPoints:
   web:

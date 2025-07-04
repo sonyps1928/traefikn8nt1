@@ -1,13 +1,12 @@
-version: '3.8'
-
 networks:
   traefik:
     external: true
     name: traefik
   internal:
-    driver: bridge
+    external: false
 
 services:
+  # Traefik Reverse Proxy
   traefik:
     image: traefik:${TRAEFIK_IMAGE_TAG}
     container_name: ${TRAEFIK_CONTAINER_NAME}
@@ -20,17 +19,17 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/traefik.yml:ro
-      - ./traefik/middlewares.yml:/traefik/middlewares.yml:ro
       - ${TRAEFIK_LETSENCRYPT_PATH}:/letsencrypt
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"  # Uses .env variable
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.middlewares=traefik-auth@docker"
-      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_CREDENTIALS}"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_CREDENTIALS}"  # Uses .env variable
 
+  # OAuth2 Proxy for Pocket ID Authentication
   oauth2-proxy:
     image: ${OAUTH2_PROXY_IMAGE}
     container_name: ${OAUTH2_PROXY_CONTAINER_NAME}
@@ -39,16 +38,18 @@ services:
       - traefik
       - internal
     volumes:
+    #  - ./oauth2-proxy.cfg:/etc/oauth2-proxy.cfg
       - ./${OAUTH2_PROXY_CONFIG}:/etc/oauth2-proxy.cfg
+
     command: --config /etc/oauth2-proxy.cfg
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.oauth.rule=Host(`${OAUTH2_PROXY_HOSTNAME}`)"
+      - "traefik.http.routers.oauth.rule=Host(`${OAUTH2_PROXY_HOSTNAME}`)"  # Uses .env variable
       - "traefik.http.routers.oauth.entrypoints=websecure"
       - "traefik.http.routers.oauth.tls.certresolver=letsencrypt"
       - "traefik.http.services.oauth.loadbalancer.server.port=4180"
-      - "traefik.docker.network=traefik"
 
+  # n8n Workflow Automation
   n8n:
     image: ${N8N_IMAGE}
     container_name: ${N8N_CONTAINER_NAME}
@@ -57,30 +58,38 @@ services:
       - traefik
       - internal
     environment:
+      # Basic n8n Configuration
       - N8N_HOST=${N8N_HOST}
       - N8N_PORT=${N8N_PORT}
       - N8N_PROTOCOL=${N8N_PROTOCOL}
       - WEBHOOK_URL=${WEBHOOK_URL}
+      # Database Configuration (using SQLite for simplicity)
       - DB_TYPE=${DB_TYPE}
       - DB_SQLITE_DATABASE=${DB_SQLITE_DATABASE}
+      # Security Configuration
       - N8N_SECURE_COOKIE=true
-      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_BASIC_AUTH_ACTIVE=false  # Disabled since using OAuth2-Proxy
+      # Execution Configuration
       - EXECUTIONS_PROCESS=main
       - EXECUTIONS_DATA_SAVE_ON_ERROR=all
       - EXECUTIONS_DATA_SAVE_ON_SUCCESS=none
+      # Generic OAuth Configuration (for n8n internal OAuth flows)
       - N8N_DISABLE_UI=false
+      # Timezone
       - GENERIC_TIMEZONE=${TZ}
-      - N8N_EDITOR_BASE_URL=https://${N8N_HOSTNAME}
     volumes:
       - n8n_data:/home/node/.n8n
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOSTNAME}`)"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOSTNAME}`)"  # Uses .env variable
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
       - "traefik.http.services.n8n.loadbalancer.server.port=${N8N_PORT}"
-      - "traefik.http.routers.n8n.middlewares=n8n-auth@file,secure-headers@file"
-      - "traefik.docker.network=traefik"
+      # OAuth2-Proxy Authentication Middleware
+      - "traefik.http.middlewares.n8n-auth.forwardauth.address=http://oauth2-proxy:4180"
+      - "traefik.http.middlewares.n8n-auth.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Access-Token"
+      - "traefik.http.middlewares.n8n-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.routers.n8n.middlewares=n8n-auth"
 
 volumes:
   n8n_data:

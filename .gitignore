@@ -1,34 +1,44 @@
-# Ignore environment variable files
+
+# 🌍 Environment variable files
 .env
-# Ignore secret files
+*.env
+
+# 🔐 Secrets and sensitive credentials
 cf_api_token.txt
 postgres_password.txt
 redis_password.txt
+oauth2-proxy.cfg
+oauth2-proxy-pocketid.cfg
 
-# Traefik config and certs
-traefik_config/
+# 👷 Traefik config and dynamic middlewares
 letsencrypt/
+traefik/middlewares.yml
+traefik_config/
 
-# Python virtual environment and cache
+# 🐍 Python environment
 .venv/
 __pycache__/
 *.pyc
 
-# Python helper/test scripts
+# 🛠️ Dev tools and temporary files
 requirements.txt
 test_env_vars.py
+*.log
+*.bak
+*.old
+*.swp
 
-# Docker Compose override
+# 📦 Docker-related overrides and volumes
 docker-compose.override.yml
-
-# n8n SQLite database and data
 n8n_data/
 *.sqlite
 
-# Ignore sensitive OAuth2 proxy config
-oauth2-proxy.cfg
-oauth2-proxy-pocketid.cfg
+# 🔧 Editor and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
 
-# But keep the safe template version
+# ✅ Include this explicitly tracked config template
 !oauth2-proxy-template.cfg
 
