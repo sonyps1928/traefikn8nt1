@@ -1,3 +1,5 @@
+
+
 networks:
   traefik:
     external: true
@@ -37,11 +39,33 @@ services:
     networks:
       - traefik
       - internal
-    volumes:
-    #  - ./oauth2-proxy.cfg:/etc/oauth2-proxy.cfg
-      - ./${OAUTH2_PROXY_CONFIG}:/etc/oauth2-proxy.cfg
-
-    command: --config /etc/oauth2-proxy.cfg
+    environment:
+      # Basic OAuth2 Proxy Configuration
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      
+      # Pocket ID OIDC Configuration
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OAUTH2_PROXY_OIDC_ISSUER_URL}  # Replace with your Pocket ID URL
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID}  # Replace with your Pocket ID client ID
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET}  # Replace with your client secret
+      
+      # Session and Cookie Configuration
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}  # Generate random 32 chars
+      - OAUTH2_PROXY_COOKIE_SECURE=true
+      - OAUTH2_PROXY_COOKIE_HTTPONLY=true
+      - OAUTH2_PROXY_COOKIE_DOMAINS=${OAUTH2_PROXY_COOKIE_DOMAINS}  # Replace with your domain
+      
+      # Email domain restriction (optional)
+      - OAUTH2_PROXY_EMAIL_DOMAINS=${OAUTH2_PROXY_EMAIL_DOMAINS}  # Or restrict to specific domains
+      
+      # Upstream configuration
+      - OAUTH2_PROXY_UPSTREAMS=${N8N_UPSTREAM}
+      
+      # Additional security headers
+      - OAUTH2_PROXY_SET_XAUTHREQUEST=true
+      - OAUTH2_PROXY_PASS_ACCESS_TOKEN=true
+      - OAUTH2_PROXY_PASS_USER_HEADERS=true
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.oauth.rule=Host(`${OAUTH2_PROXY_HOSTNAME}`)"  # Uses .env variable
