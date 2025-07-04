@@ -1,163 +1,120 @@
+
+
+networks:
+  traefik:
+    external: true
+    name: traefik
+  internal:
+    external: false
+
 services:
   # Traefik Reverse Proxy
   traefik:
-    image: traefik:${TRAEFIK_IMAGE_TAG:-v3.0}
-    container_name: traefik
+    image: traefik:${TRAEFIK_IMAGE_TAG}
+    container_name: ${TRAEFIK_CONTAINER_NAME}
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - proxy
     ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      CF_DNS_API_TOKEN_FILE: /run/secrets/cf_api_token
-      TRAEFIK_DASHBOARD_CREDENTIALS: ${TRAEFIK_DASHBOARD_CREDENTIALS}
-    secrets:
-      - cf_api_token
-    env_file:
-      - .env
+      - "${TRAEFIK_HTTP_PORT}:80"
+      - "${TRAEFIK_HTTPS_PORT}:443"
+    networks:
+      - traefik
     volumes:
-      - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik_config/traefik.yml:/traefik.yml:ro
-      - ./traefik_config/acme.json:/acme.json
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ${TRAEFIK_LETSENCRYPT_PATH}:/letsencrypt
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik-http.entrypoints=http"
-      - "traefik.http.routers.traefik-http.rule=Host(`${TRAEFIK_HOSTNAME}`)"
-      - "traefik.http.routers.traefik-http.middlewares=traefik-https-redirect@docker"
-      - "traefik.http.routers.traefik-secure.entrypoints=https"
-      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIK_HOSTNAME}`)"
-      - "traefik.http.routers.traefik-secure.middlewares=traefik-auth@docker,secure-headers@docker"
-      - "traefik.http.routers.traefik-secure.tls=true"
-      - "traefik.http.routers.traefik-secure.tls.certresolver=cloudflare"
-      - "traefik.http.routers.traefik-secure.tls.domains[0].main=${TRAEFIK_HOSTNAME}"
-      - "traefik.http.routers.traefik-secure.service=api@internal"
-      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_CREDENTIALS}"
-      - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.permanent=true"
-      - "traefik.http.middlewares.secure-headers.headers.stsSeconds=604800"
-      - "traefik.http.middlewares.secure-headers.headers.frameDeny=true"
-      - "traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true"
-      - "traefik.http.middlewares.secure-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
-      - "traefik.http.middlewares.secure-headers.headers.contentSecurityPolicy=default-src 'self' https: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' https: data:; connect-src 'self' wss://${N8N_HOSTNAME} https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
-      - "traefik.http.middlewares.secure-headers.headers.permissionsPolicy=geolocation=(), midi=(), microphone=(), camera=(), magnetometer=(), gyroscope=(), speaker=(), payment=()"
-      - "traefik.http.middlewares.secure-headers.headers.customResponseHeaders.Server="
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"  # Uses .env variable
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_CREDENTIALS}"  # Uses .env variable
 
-  n8n:
-    image: n8nio/n8n:${N8N_VERSION:-latest}
-    container_name: n8n
+  # OAuth2 Proxy for Pocket ID Authentication
+  oauth2-proxy:
+    image: ${OAUTH2_PROXY_IMAGE}
+    container_name: ${OAUTH2_PROXY_CONTAINER_NAME}
     restart: unless-stopped
+    networks:
+      - traefik
+      - internal
     environment:
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB:-n8n}
-      DB_POSTGRESDB_USER: ${N8N_POSTGRES_USER:-n8nuser}
-      DB_POSTGRESDB_PASSWORD_FILE: /run/secrets/postgres_password
-      QUEUE_BULL_REDIS_HOST: redis
-      QUEUE_BULL_REDIS_PORT: 6379
-      QUEUE_BULL_REDIS_PASSWORD_FILE: /run/secrets/redis_password
-      EXECUTIONS_MODE: queue
-      QUEUE_HEALTH_CHECK_ACTIVE: "true"
-      N8N_HOST: ${N8N_HOSTNAME}
-      N8N_PORT: 5678
-      N8N_PROTOCOL: https
-      WEBHOOK_URL: https://${N8N_HOSTNAME}/
-      NODE_ENV: production
-      GENERIC_TIMEZONE: ${TZ}
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # Basic OAuth2 Proxy Configuration
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      
+      # Pocket ID OIDC Configuration
+      - OAUTH2_PROXY_PROVIDER=oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=${OAUTH2_PROXY_OIDC_ISSUER_URL}  # Replace with your Pocket ID URL
+      - OAUTH2_PROXY_CLIENT_ID=${OAUTH2_PROXY_CLIENT_ID}  # Replace with your Pocket ID client ID
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET}  # Replace with your client secret
+      
+      # Session and Cookie Configuration
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}  # Generate random 32 chars
+      - OAUTH2_PROXY_COOKIE_SECURE=true
+      - OAUTH2_PROXY_COOKIE_HTTPONLY=true
+      - OAUTH2_PROXY_COOKIE_DOMAINS=${OAUTH2_PROXY_COOKIE_DOMAINS}  # Replace with your domain
+      
+      # Email domain restriction (optional)
+      - OAUTH2_PROXY_EMAIL_DOMAINS=${OAUTH2_PROXY_EMAIL_DOMAINS}  # Or restrict to specific domains
+      
+      # Upstream configuration
+      - OAUTH2_PROXY_UPSTREAMS=${N8N_UPSTREAM}
+      
+      # Additional security headers
+      - OAUTH2_PROXY_SET_XAUTHREQUEST=true
+      - OAUTH2_PROXY_PASS_ACCESS_TOKEN=true
+      - OAUTH2_PROXY_PASS_USER_HEADERS=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oauth.rule=Host(`${OAUTH2_PROXY_HOSTNAME}`)"  # Uses .env variable
+      - "traefik.http.routers.oauth.entrypoints=websecure"
+      - "traefik.http.routers.oauth.tls.certresolver=letsencrypt"
+      - "traefik.http.services.oauth.loadbalancer.server.port=4180"
+
+  # n8n Workflow Automation
+  n8n:
+    image: ${N8N_IMAGE}
+    container_name: ${N8N_CONTAINER_NAME}
+    restart: unless-stopped
+    networks:
+      - traefik
+      - internal
+    environment:
+      # Basic n8n Configuration
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      # Database Configuration (using SQLite for simplicity)
+      - DB_TYPE=${DB_TYPE}
+      - DB_SQLITE_DATABASE=${DB_SQLITE_DATABASE}
+      # Security Configuration
+      - N8N_SECURE_COOKIE=true
+      - N8N_BASIC_AUTH_ACTIVE=false  # Disabled since using OAuth2-Proxy
+      # Execution Configuration
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=none
+      # Generic OAuth Configuration (for n8n internal OAuth flows)
+      - N8N_DISABLE_UI=false
+      # Timezone
+      - GENERIC_TIMEZONE=${TZ}
     volumes:
       - n8n_data:/home/node/.n8n
-    networks:
-      - proxy
-      - n8n_internal
-    depends_on:
-      - postgres
-      - redis
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n-http.entrypoints=http"
-      - "traefik.http.routers.n8n-http.rule=Host(${N8N_HOSTNAME})"
-      - "traefik.http.routers.n8n-http.middlewares=traefik-https-redirect@docker"
-      - "traefik.http.routers.n8n-secure.entrypoints=https"
-      - "traefik.http.routers.n8n-secure.rule=Host(${N8N_HOSTNAME})"
-      - "traefik.http.routers.n8n-secure.middlewares=secure-headers@docker"
-      - "traefik.http.routers.n8n-secure.tls=true"
-      - "traefik.http.routers.n8n-secure.tls.certresolver=cloudflare"
-      - "traefik.http.routers.n8n-secure.service=n8n-svc"
-      - "traefik.http.services.n8n-svc.loadbalancer.server.port=5678"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "https://localhost:5678/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    secrets:
-      - cf_api_token
-      - postgres_password
-      - redis_password
-
-  postgres:
-    image: postgres:${POSTGRES_VERSION:-15}-alpine
-    container_name: n8n_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${N8N_POSTGRES_USER:-n8nuser}
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRES_DB: ${N8N_POSTGRES_DB:-n8n}
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - n8n_internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${N8N_POSTGRES_USER:-n8nuser} -d ${N8N_POSTGRES_DB:-n8n}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    secrets:
-      - postgres_password
-
-  redis:
-    image: redis:${REDIS_VERSION:-7}-alpine
-    container_name: n8n_redis
-    restart: unless-stopped
-    command: ["sh", "-c", "redis-server --save 60 1 --loglevel warning --requirepass $(cat /run/secrets/redis_password)"]
-    volumes:
-      - redisdata:/data
-    networks:
-      - n8n_internal
-    healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a $(cat /run/secrets/redis_password) ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    secrets:
-      - redis_password
-
-secrets:
-  cf_api_token:
-    file: ./cf_api_token.txt
-  postgres_password:
-    file: ./postgres_password.txt
-  redis_password:
-    file: ./redis_password.txt
-
-networks:
-  proxy:
-    external: true
-  n8n_internal:
-    driver: bridge
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOSTNAME}`)"  # Uses .env variable
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+      - "traefik.http.services.n8n.loadbalancer.server.port=${N8N_PORT}"
+      # OAuth2-Proxy Authentication Middleware
+      - "traefik.http.middlewares.n8n-auth.forwardauth.address=http://oauth2-proxy:4180"
+      - "traefik.http.middlewares.n8n-auth.forwardauth.authResponseHeaders=X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Access-Token"
+      - "traefik.http.middlewares.n8n-auth.forwardauth.trustForwardHeader=true"
+      - "traefik.http.routers.n8n.middlewares=n8n-auth"
 
 volumes:
   n8n_data:
-  pgdata:
-  redisdata:
-
+    driver: local

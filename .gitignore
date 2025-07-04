@@ -4,3 +4,6 @@
 cf_api_token.txt
 postgres_password.txt
 redis_password.txt
+
+traefik/traefik.yml
+letsencrypt/
