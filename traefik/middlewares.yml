@@ -1,5 +1,24 @@
 http:
   middlewares:
+
+    retry:
+      retry:
+        attempts: 3
+
+    n8n-chain:
+      chain:
+        middlewares:
+          - n8n-redirect
+          - n8n-auth
+          - secure-headers
+          - retry
+
+    n8n-redirect:
+      errors:
+        status: "401"
+        service: oauth@docker
+        query: "/oauth2/sign_in"
+
     n8n-auth:
       forwardAuth:
         address: "http://oauth2-proxy:4180/oauth2/auth"
@@ -8,13 +27,26 @@ http:
           - "X-Auth-Request-User"
           - "X-Auth-Request-Email"
           - "X-Auth-Request-Access-Token"
+        authRequestHeaders:
+          - "X-Forwarded-Host"
+          - "X-Forwarded-Proto"
+          - "X-Forwarded-Uri"
 
     secure-headers:
       headers:
-        browserXssFilter: true
         contentTypeNosniff: true
         frameDeny: true
-        sslRedirect: true
         stsIncludeSubdomains: true
         stsPreload: true
         stsSeconds: 31536000
+        contentSecurityPolicy: |
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' 'unsafe-eval';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data:;
+          font-src 'self';
+          connect-src 'self';
+        permissionsPolicy: "geolocation=(), microphone=(), camera=()"  # Updated Permissions-Policy header
+
+
+
