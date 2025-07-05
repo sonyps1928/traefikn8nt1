@@ -34,7 +34,7 @@ certificatesResolvers:
   letsencrypt:
     acme:
       # Uses the email configured in docker-compose or fixed here
-      email: "asmhasming12345@gmail.com"
+      email: "placeholder@example.com"
       storage: "/letsencrypt/acme.json"
       caServer: "https://acme-v02.api.letsencrypt.org/directory"
       dnsChallenge:
